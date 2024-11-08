@@ -116,26 +116,28 @@ def convert_book(filepath=""):
     myacbt = check_acbt()
     mykcc = check_kcc()
     filename = os.path.basename(filepath)
-    filebase, extension = os.path.splitext(filename)
+    mybase , extension = os.path.splitext(filename)
+    filebase = os.path.join(os.path.abspath(mybase), mybase)
 
     if mykcc != "failed":
         print("kcc found")
         
     if myacbt != "failed":
         print("acbt found")    
-
+    print(filepath)
+    #exit(-1)
     if os.path.exists(filebase):
         command = f'rm -fR "{filebase}"'  # or any other command you want to run
         subprocess.run(command, shell=True, capture_output=True, text=True)  
              
 # Define a command to execute the binary
-    command = f'{myacbt} extract --output-folder "{os.path.abspath(filebase)}" -co true -iq 60 -s 50 "{filepath}"'  # or any other command you want to run
+    command = f'{myacbt} extract --output-folder "{os.path.abspath(mybase)}" -co true -iq 60 -s 50 "{filepath}"'  # or any other command you want to run
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     #print('Return code:', result.stderr)
     if os.path.exists(filepath):
         try:
-            shutil.move(filepath, filebase + "_old.bak")
-            print(f'File moved from {filename} to ' + filebase +  "_old.bak")
+            shutil.move(filepath, filepath + ".bak")
+            print(f'File moved from {filename} to ' + filepath +  ".bak")
         except FileNotFoundError:
             print(f'The file {filename} does not exist.')
         except Exception as e:
@@ -143,11 +145,11 @@ def convert_book(filepath=""):
     #filepath = 
     #print(f'{os.path.abspath(filebase)} + {os.path.abspath(filebase)}')
     if os.path.exists(filebase):
-        print(f"Convert:" + os.path.abspath(filebase) )
-        command = f'{mykcc} -o "{filepath}" --dedupecover --forcecolor -f CBZ -c 2 -r 1 -g 0 -s -u -m "{os.path.abspath(filebase)}"'
+        print(f"Convert:" + os.path.abspath(mybase) )
+        command = f'{mykcc} -o "{filepath}" --forcecolor -f CBZ -c 2 -r 1 -g 0 -s -u -m "{os.path.abspath(mybase)}"'
 #        command = f'{mykcc} --dedupecover --forcecolor -f CBZ -c 2 -r 1 -g 0 -s -u -m "{filebase}"'  # or any other command you want to run
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        print('Return code:', result.stdout)
+        print(f'\n{command}\n code:', result.stdout)
     if not os.path.exists(filepath):
         print(f'ERROR on {filepath}')
         try:
@@ -162,6 +164,7 @@ def convert_book(filepath=""):
         command = f'rm -fR "{filebase}"'  # or any other command you want to run
         subprocess.run(command, shell=True, capture_output=True, text=True)  
     
+
         # kcc-c2e --dedupecover --forcecolor -f CBZ -c 2 -r 1 -g 0 -s -u -m
         #binary_name =  
     # Print the command output
@@ -219,11 +222,40 @@ def check_acbt():
 
 
 
+def upload_book(token=mytoken,filepath=""):
+    if not os.path.exists(filepath):
+        print("file not found")
+        exit(-1)
+    #convert_book(filepath=filepath)
+
+    filename = os.path.basename(filepath)
+    url = "https://cloud.pocketbook.digital/api/v1.1/files/" + filename
+
+    # Define the file path
+    headers = {
+        'Authorization': 'Bearer ' + mytoken
+    }
+
+    # Open the file in binary mode and upload it
+    with open(filepath, 'rb') as file:
+        response = requests.put(url,  headers=headers, data=file)
+
+    myjson = json.loads(response.text)
+    if 'error_code' in myjson:
+        #print(json.dumps(myjson, indent=4))
+        print("Error: " + str(myjson['error_msg']) )
+    else:
+        print('[Upload] Success ' + filename)
+
+
 if len(sys.argv) < 2:
     print("<file-to-upload>")
     sys.exit(1)
     # Get the source file and destination directory from command-line arguments
 
 source_path = sys.argv[1]
-#mytoken = get_token(username=username,password=password)
 convert_book(filepath=source_path)
+mytoken = get_token(username=username,password=password)
+rm_read_books(token=mytoken)
+upload_book(token=mytoken,filepath=source_path)
+
